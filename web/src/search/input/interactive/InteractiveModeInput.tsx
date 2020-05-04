@@ -24,6 +24,8 @@ import { SearchModeToggle } from './SearchModeToggle'
 import { uniqueId } from 'lodash'
 import { convertPlainTextToInteractiveQuery } from '../helpers'
 import { isSingularFilter } from '../../../../../shared/src/search/parser/filters'
+import { CopyQueryButton } from '../toggles/CopyQueryButton'
+import { generateFiltersQuery } from '../../../../../shared/src/util/url'
 
 interface InteractiveModeProps
     extends SettingsCascadeProps,
@@ -200,6 +202,14 @@ export class InteractiveModeInput extends React.Component<InteractiveModeProps, 
         }
 
         const logo = <img className="global-navbar__logo" src={logoSrc} />
+        const fullQuery = [
+            this.props.navbarSearchState.query,
+            this.props.filtersInQuery && generateFiltersQuery(this.props.filtersInQuery),
+            `patternType:${this.props.patternType}`,
+            this.props.caseSensitive ? 'case:yes' : '',
+        ]
+            .filter(queryPart => !!queryPart)
+            .join(' ')
 
         return (
             <div className="interactive-mode-input e2e-interactive-mode-input">
@@ -236,7 +246,8 @@ export class InteractiveModeInput extends React.Component<InteractiveModeProps, 
                                     withoutSuggestions={true}
                                     withSearchModeToggle={true}
                                 />
-                                <SearchButton noHelp={true} />
+                                <SearchButton noHelp={true} className="search-button__btn--not-rounded" />
+                                <CopyQueryButton {...this.props} navbarQuery={this.props.navbarSearchState.query} />
                             </div>
                         </Form>
                     </div>

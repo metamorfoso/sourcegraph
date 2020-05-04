@@ -11,8 +11,6 @@ import { submitSearch } from '../../helpers'
 import { QueryInputToggle } from './QueryInputToggle'
 import { isErrorLike } from '../../../../../shared/src/util/errors'
 import CodeBracketsIcon from 'mdi-react/CodeBracketsIcon'
-import { generateFiltersQuery } from '../../../../../shared/src/util/url'
-import { CopyQueryButton } from './CopyQueryButton'
 
 export interface TogglesProps
     extends PatternTypeProps,
@@ -91,15 +89,6 @@ export const Toggles: React.FunctionComponent<TogglesProps> = (props: TogglesPro
         submitOnToggle({ newPatternType })
     }
 
-    const fullQuery = [
-        props.navbarSearchQuery,
-        props.filtersInQuery && generateFiltersQuery(props.filtersInQuery),
-        `patternType:${props.patternType}`,
-        props.caseSensitive ? 'case:yes' : '',
-    ]
-        .filter(queryPart => !!queryPart)
-        .join(' ')
-
     return (
         <div className={classNames('toggle-container', props.className)}>
             <QueryInputToggle
@@ -133,7 +122,6 @@ export const Toggles: React.FunctionComponent<TogglesProps> = (props: TogglesPro
                     icon={CodeBracketsIcon}
                 />
             )}
-            <CopyQueryButton fullQuery={fullQuery} className="toggle-container__toggle" />
         </div>
     )
 }
