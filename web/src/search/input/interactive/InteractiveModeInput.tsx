@@ -25,7 +25,6 @@ import { uniqueId } from 'lodash'
 import { convertPlainTextToInteractiveQuery } from '../helpers'
 import { isSingularFilter } from '../../../../../shared/src/search/parser/filters'
 import { CopyQueryButton } from '../toggles/CopyQueryButton'
-import { generateFiltersQuery } from '../../../../../shared/src/util/url'
 
 interface InteractiveModeProps
     extends SettingsCascadeProps,
