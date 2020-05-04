@@ -202,14 +202,6 @@ export class InteractiveModeInput extends React.Component<InteractiveModeProps, 
         }
 
         const logo = <img className="global-navbar__logo" src={logoSrc} />
-        const fullQuery = [
-            this.props.navbarSearchState.query,
-            this.props.filtersInQuery && generateFiltersQuery(this.props.filtersInQuery),
-            `patternType:${this.props.patternType}`,
-            this.props.caseSensitive ? 'case:yes' : '',
-        ]
-            .filter(queryPart => !!queryPart)
-            .join(' ')
 
         return (
             <div className="interactive-mode-input e2e-interactive-mode-input">
