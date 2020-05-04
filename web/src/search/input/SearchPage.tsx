@@ -31,6 +31,7 @@ import { PlatformContextProps } from '../../../../shared/src/platform/context'
 import { SearchModeToggle } from './interactive/SearchModeToggle'
 import { Link } from '../../../../shared/src/components/Link'
 import { BrandLogo } from '../../components/branding/BrandLogo'
+import { CopyQueryButton } from './toggles/CopyQueryButton'
 
 interface Props
     extends SettingsCascadeProps,
@@ -130,6 +131,10 @@ export class SearchPage extends React.Component<Props, State> {
                                                 withSearchModeToggle={this.props.splitSearchModes}
                                             />
                                         )}
+                                        <CopyQueryButton
+                                            {...this.props}
+                                            navbarQuery={this.state.userQueryState.query}
+                                        />
                                         <SearchButton />
                                     </div>
                                     <div className="search-page__input-sub-container">

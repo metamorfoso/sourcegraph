@@ -246,8 +246,8 @@ export class InteractiveModeInput extends React.Component<InteractiveModeProps, 
                                     withoutSuggestions={true}
                                     withSearchModeToggle={true}
                                 />
-                                <SearchButton noHelp={true} className="search-button__btn--not-rounded" />
                                 <CopyQueryButton {...this.props} navbarQuery={this.props.navbarSearchState.query} />
+                                <SearchButton noHelp={true} />
                             </div>
                         </Form>
                     </div>

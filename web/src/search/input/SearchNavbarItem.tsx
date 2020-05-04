@@ -9,6 +9,7 @@ import { LazyMonacoQueryInput } from './LazyMonacoQueryInput'
 import { QueryInput } from './QueryInput'
 import { ThemeProps } from '../../../../shared/src/theme'
 import { SettingsCascadeProps } from '../../../../shared/src/settings/settings'
+import { CopyQueryButton } from './toggles/CopyQueryButton'
 
 interface Props
     extends ActivationProps,
@@ -58,6 +59,7 @@ export class SearchNavbarItem extends React.PureComponent<Props> {
                         hasGlobalQueryBehavior={true}
                     />
                 )}
+                <CopyQueryButton {...this.props} navbarQuery={this.props.navbarSearchState.query} />
                 <SearchButton />
             </Form>
         )

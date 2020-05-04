@@ -13,7 +13,7 @@ import { isEmpty } from 'lodash'
 
 interface Props extends Pick<PatternTypeProps, 'patternType'>, Pick<CaseSensitivityProps, 'caseSensitive'> {
     navbarQuery: string
-    filtersInQuery: FiltersToTypeAndValue
+    filtersInQuery?: FiltersToTypeAndValue
     className?: string
 }
 
@@ -47,10 +47,14 @@ export const CopyQueryButton: React.FunctionComponent<Props> = (props: Props) =>
         <div className="d-flex">
             <button
                 type="button"
-                className={classNames('btn btn-secondary', props.className)}
+                className={classNames('btn btn-secondary rounded-0', props.className)}
                 data-tooltip={copied ? 'Copied!' : 'Copy query to clipboard'}
                 onClick={nextClick}
-                disabled={props.navbarQuery.length === 0 && isEmpty(props.filtersInQuery)}
+                disabled={
+                    props.filtersInQuery
+                        ? isEmpty(props.filtersInQuery) && props.navbarQuery.length === 0
+                        : props.navbarQuery.length === 0
+                }
             >
                 <ContentCopyIcon className="icon-inline" />
             </button>
