@@ -166,6 +166,7 @@ func (s *Server) handleExists(w http.ResponseWriter, r *http.Request) {
 		getQuery(r, "path"),
 	)
 	if err != nil {
+		// TODO - all of these are duplicates
 		log15.Error("Failed to handle exists request", "error", err)
 		http.Error(w, fmt.Sprintf("failed to handle exists request: %s", err.Error()), http.StatusInternalServerError)
 		return

@@ -16,13 +16,13 @@ func NewResetterMetrics() ResetterMetrics {
 	return ResetterMetrics{
 		StalledJobs: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: "src",
-			Subsystem: "precise-code-intel-api-server",
+			Subsystem: "precise_code_intel_api_server",
 			Name:      "resetter_stalled_jobs",
 			Help:      "Total number of reset stalled jobs",
 		}),
 		Errors: prometheus.NewCounter(prometheus.CounterOpts{
 			Namespace: "src",
-			Subsystem: "precise-code-intel-api-server",
+			Subsystem: "precise_code_intel_api_server",
 			Name:      "resetter_errors",
 			Help:      "Total number of errors when running the janitor",
 		}),

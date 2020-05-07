@@ -22,14 +22,24 @@ type ObservedDatabase struct {
 
 var _ Database = &ObservedDatabase{}
 
+// TODO - document
+var singletonMetrics = &metrics.SingletonOperationMetrics{}
+
 // NewObservedDatabase wraps the given Database with error logging, Prometheus metrics, and tracing.
 func NewObserved(database Database, observationContext *observation.Context) Database {
-	metrics := metrics.NewOperationMetrics(
-		"precise_code_intel_bundle_manager",
-		"database",
-		metrics.WithLabels("op"),
-		metrics.WithCountHelp("Total number of bundle results returned"),
-	)
+	metrics := singletonMetrics.Get(func() *metrics.OperationMetrics {
+		if observationContext.Registerer == nil {
+			return nil
+		}
+
+		return metrics.NewOperationMetrics(
+			observationContext.Registerer,
+			"precise_code_intel_bundle_manager",
+			"database",
+			metrics.WithLabels("op"),
+			metrics.WithCountHelp("Total number of bundle results returned"),
+		)
+	})
 
 	return &ObservedDatabase{
 		database: database,

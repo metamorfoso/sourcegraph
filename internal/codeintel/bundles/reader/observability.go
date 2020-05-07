@@ -20,14 +20,24 @@ type ObservedReader struct {
 
 var _ Reader = &ObservedReader{}
 
+// TODO - document
+var singletonMetrics = &metrics.SingletonOperationMetrics{}
+
 // NewObservedReader wraps the given Reader with error logging, Prometheus metrics, and tracing.
 func NewObserved(reader Reader, observationContext *observation.Context, subsystem string) Reader {
-	metrics := metrics.NewOperationMetrics(
-		subsystem,
-		"reader",
-		metrics.WithLabels("op"),
-		metrics.WithCountHelp("Total number of bundle results returned"),
-	)
+	metrics := singletonMetrics.Get(func() *metrics.OperationMetrics {
+		if observationContext.Registerer == nil {
+			return nil
+		}
+
+		return metrics.NewOperationMetrics(
+			observationContext.Registerer,
+			subsystem,
+			"reader",
+			metrics.WithLabels("op"),
+			metrics.WithCountHelp("Total number of bundle results returned"),
+		)
+	})
 
 	return &ObservedReader{
 		reader: reader,

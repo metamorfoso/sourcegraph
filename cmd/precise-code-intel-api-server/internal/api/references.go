@@ -83,6 +83,7 @@ func (s *ReferencePageResolver) dispatchCursorHandler(ctx context.Context, curso
 	if err != nil {
 		return nil, Cursor{}, false, pkgerrors.Wrap(err, cursor.Phase)
 	}
+
 	return locations, newCursor, hasNewCursor, nil
 }
 
@@ -112,6 +113,7 @@ func (s *ReferencePageResolver) handleSameDumpCursor(ctx context.Context, cursor
 		)
 	}
 
+	// TODO - not a correct name
 	dumpIDs := map[string]struct{}{}
 	for _, location := range locations {
 		dumpIDs[hashLocation(location)] = struct{}{}
