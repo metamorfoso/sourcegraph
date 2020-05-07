@@ -11,6 +11,7 @@ import { Timestamp } from '../components/time/Timestamp'
 import { eventLogger } from '../tracking/eventLogger'
 import { fetchSiteUsageStatistics, fetchUserUsageStatistics } from './backend'
 import { ErrorAlert } from '../components/alerts'
+import {Link} from "react-router-dom";
 
 interface ChartData {
     label: string
@@ -237,6 +238,11 @@ export class SiteAdminUsageStatisticsPage extends React.Component<
                 {this.state.error && (
                     <ErrorAlert className="mb-3" error={this.state.error} history={this.props.history} />
                 )}
+
+                <Link to="/.api/usage-stats.download" className="btn btn-secondary">
+                    Download usage statistics archive
+                </Link>
+
                 {this.state.stats && (
                     <>
                         <RadioButtons
