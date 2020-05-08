@@ -131,7 +131,7 @@ func (r *repositoryResolver) resolveRepositories(ctx context.Context) (repoRevis
 		repoRevisions, err = filterRepoHasCommitAfter(ctx, repoRevisions, r.commitAfter)
 	}
 
-	return repoRevisions, missingRepoRevisions, overLimit, err
+	return r.repoRevisions, r.missingRepoRevisions, overLimit, err
 }
 
 // If any repo groups are specified, take the intersection of the repo
