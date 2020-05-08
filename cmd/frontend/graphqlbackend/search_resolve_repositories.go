@@ -65,6 +65,8 @@ type repositoryResolver struct {
 	includePatternRevs         []patternRevspec
 	defaultRepos               []*types.Repo
 	versionContextRepositories []string
+	missingRepoRevisions       []*search.RepositoryRevisions
+	repoRevisions              []*search.RepositoryRevisions
 }
 
 func (r *repositoryResolver) resolveRepositories(ctx context.Context) (repoRevisions, missingRepoRevisions []*search.RepositoryRevisions, overLimit bool, err error) {
@@ -103,17 +105,9 @@ func (r *repositoryResolver) resolveRepositories(ctx context.Context) (repoRevis
 
 	// If a version context is specified, gather the list of repository names
 	// to limit the results to these repositories.
-	var versionContext *schema.VersionContext
-	// If a ref is specified we skip using version contexts.
-	if len(r.includePatternRevs) == 0 && r.versionContextName != "" {
-		versionContext, err = resolveVersionContext(r.versionContextName)
-		if err != nil {
-			return nil, nil, false, err
-		}
-
-		for _, revision := range versionContext.Revisions {
-			r.versionContextRepositories = append(r.versionContextRepositories, revision.Repo)
-		}
+	versionContext, err := r.getVersionContext()
+	if err != nil {
+		return nil, nil, false, err
 	}
 
 	repos, err := r.getRepos(ctx)
@@ -124,47 +118,13 @@ func (r *repositoryResolver) resolveRepositories(ctx context.Context) (repoRevis
 	overLimit = len(repos) >= r.maxRepoListSize
 
 	repoRevisions = make([]*search.RepositoryRevisions, 0, len(repos))
+
 	r.tr.LazyPrintf("Associate/validate revs - start")
-
-	for _, repo := range repos {
-		var repoRev search.RepositoryRevisions
-		var revs []search.RevisionSpecifier
-		// versionContext will be nil if the query contains revision specifiers
-		if versionContext != nil {
-			for _, vcRepoRef := range versionContext.Revisions {
-				if vcRepoRef.Repo == string(repo.Name) {
-					repoRev.Repo = repo
-					revs = append(revs, search.RevisionSpecifier{RevSpec: vcRepoRef.Ref})
-					break
-				}
-			}
-		} else {
-			var clashingRevs []search.RevisionSpecifier
-			revs, clashingRevs = getRevsForMatchedRepo(repo.Name, r.includePatternRevs)
-			repoRev.Repo = repo
-			// if multiple specified revisions clash, report this usefully:
-			if len(revs) == 0 && clashingRevs != nil {
-				missingRepoRevisions = append(missingRepoRevisions, &search.RepositoryRevisions{
-					Repo: repo,
-					Revs: clashingRevs,
-				})
-			}
-		}
-
-		// We do in place filtering to reduce allocations. Common path is no
-		// filtering of revs.
-		if len(revs) > 0 {
-			repoRev.Revs = revs[:0]
-		}
-
-		// Check if the repository actually has the revisions that the user specified.
-		revsFound, missingRevs := r.findRepositoryRevisions(ctx, &repoRev, revs)
-		repoRev.Revs = append(repoRev.Revs, revsFound...)
-		missingRepoRevisions = append(missingRepoRevisions, missingRevs...)
-
-		repoRevisions = append(repoRevisions, &repoRev)
+	if versionContext != nil {
+		r.validateAndAssociateWithVersionContext(ctx, repos, versionContext)
+	} else {
+		r.validateAndAssociate(ctx, repos)
 	}
-
 	r.tr.LazyPrintf("Associate/validate revs - done")
 
 	if r.commitAfter != "" {
@@ -174,6 +134,9 @@ func (r *repositoryResolver) resolveRepositories(ctx context.Context) (repoRevis
 	return repoRevisions, missingRepoRevisions, overLimit, err
 }
 
+// If any repo groups are specified, take the intersection of the repo
+// groups and the set of repos specified with repo:. (If none are specified
+// with repo:, then include all from the group.)
 func (r *repositoryResolver) mergeRepoWithRepoGroups(ctx context.Context, groupNames []string) ([]string, error) {
 	groups, err := resolveRepoGroups(ctx)
 	if err != nil {
@@ -189,8 +152,40 @@ func (r *repositoryResolver) mergeRepoWithRepoGroups(ctx context.Context, groupN
 	return patterns, nil
 }
 
+// If a version context is specified, gather the list of repository names
+// to limit the results to these repositories.
+// If no version context was specified or if the user query contains a reference, a nil context is returned.
+func (r *repositoryResolver) getVersionContext() (*schema.VersionContext, error) {
+	// If a ref is specified we ignore the version context.
+	if len(r.includePatternRevs) > 0 {
+		return nil, nil
+	}
+
+	// if no version context is specified, we return nothing
+	if r.versionContextName == "" {
+		return nil, nil
+	}
+
+	var versionContext *schema.VersionContext
+	for _, vc := range conf.Get().ExperimentalFeatures.VersionContexts {
+		if vc.Name == r.versionContextName {
+			versionContext = vc
+			break
+		}
+	}
+	if versionContext == nil {
+		return nil, errors.New("version context not found")
+	}
+
+	for _, revision := range versionContext.Revisions {
+		r.versionContextRepositories = append(r.versionContextRepositories, revision.Repo)
+	}
+
+	return versionContext, nil
+}
+
 // checks if the repository actually has the revisions that the user specified and returns missing revisions.
-func (r *repositoryResolver) findRepositoryRevisions(ctx context.Context, repo *search.RepositoryRevisions, revs []search.RevisionSpecifier) (revisionsFound []search.RevisionSpecifier, missingRepoRevisions []*search.RepositoryRevisions) {
+func (r *repositoryResolver) findRepositoryRevisions(ctx context.Context, repo *search.RepositoryRevisions, revs []search.RevisionSpecifier) (revisionsFound []search.RevisionSpecifier) {
 	// Check if the repository actually has the revisions that the user specified.
 	for _, rev := range revs {
 		if rev.RefGlob != "" || rev.ExcludeRefGlob != "" {
@@ -214,7 +209,7 @@ func (r *repositoryResolver) findRepositoryRevisions(ctx context.Context, repo *
 					// Report as HEAD not "" (empty string) to avoid user confusion.
 					rev.RevSpec = "HEAD"
 				}
-				missingRepoRevisions = append(missingRepoRevisions, &search.RepositoryRevisions{
+				r.missingRepoRevisions = append(r.missingRepoRevisions, &search.RepositoryRevisions{
 					Repo: repo.Repo,
 					Revs: []search.RevisionSpecifier{{RevSpec: rev.RevSpec}},
 				})
@@ -230,6 +225,7 @@ func (r *repositoryResolver) findRepositoryRevisions(ctx context.Context, repo *
 	return
 }
 
+// get repositories from the database or from the default repositories.
 func (r *repositoryResolver) getRepos(ctx context.Context) ([]*types.Repo, error) {
 	var err error
 	var repos []*types.Repo
@@ -263,13 +259,58 @@ func (r *repositoryResolver) getRepos(ctx context.Context) ([]*types.Repo, error
 	return repos, nil
 }
 
-// NOTE: This function is not called if the version context is not used
-func resolveVersionContext(versionContext string) (*schema.VersionContext, error) {
-	for _, vc := range conf.Get().ExperimentalFeatures.VersionContexts {
-		if vc.Name == versionContext {
-			return vc, nil
+// validate and associate repositories with revisions
+func (r *repositoryResolver) validateAndAssociate(ctx context.Context, repos []*types.Repo) {
+	for _, repo := range repos {
+		var repoRev search.RepositoryRevisions
+		var revs []search.RevisionSpecifier
+		var clashingRevs []search.RevisionSpecifier
+		revs, clashingRevs = getRevsForMatchedRepo(repo.Name, r.includePatternRevs)
+		repoRev.Repo = repo
+		// if multiple specified revisions clash, report this usefully:
+		if len(revs) == 0 && clashingRevs != nil {
+			r.missingRepoRevisions = append(r.missingRepoRevisions, &search.RepositoryRevisions{
+				Repo: repo,
+				Revs: clashingRevs,
+			})
 		}
-	}
 
-	return nil, errors.New("version context not found")
+		// We do in place filtering to reduce allocations. Common path is no
+		// filtering of revs.
+		if len(revs) > 0 {
+			repoRev.Revs = revs[:0]
+		}
+
+		// Check if the repository actually has the revisions that the user specified.
+		revsFound := r.findRepositoryRevisions(ctx, &repoRev, revs)
+		repoRev.Revs = append(repoRev.Revs, revsFound...)
+		r.repoRevisions = append(r.repoRevisions, &repoRev)
+	}
+}
+
+// validate and associate repositories and revisions within a version context
+func (r *repositoryResolver) validateAndAssociateWithVersionContext(ctx context.Context, repos []*types.Repo, versionContext *schema.VersionContext) {
+	for _, repo := range repos {
+		var repoRev search.RepositoryRevisions
+		var revs []search.RevisionSpecifier
+		// versionContext will be nil if the query contains revision specifiers
+		for _, vcRepoRef := range versionContext.Revisions {
+			if vcRepoRef.Repo == string(repo.Name) {
+				repoRev.Repo = repo
+				revs = append(revs, search.RevisionSpecifier{RevSpec: vcRepoRef.Ref})
+				break
+			}
+		}
+
+		// We do in place filtering to reduce allocations. Common path is no
+		// filtering of revs.
+		if len(revs) > 0 {
+			repoRev.Revs = revs[:0]
+		}
+
+		// Check if the repository actually has the revisions that the user specified.
+		revsFound := r.findRepositoryRevisions(ctx, &repoRev, revs)
+		repoRev.Revs = append(repoRev.Revs, revsFound...)
+		r.repoRevisions = append(r.repoRevisions, &repoRev)
+	}
 }
